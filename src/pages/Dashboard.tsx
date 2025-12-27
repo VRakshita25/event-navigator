@@ -3,72 +3,79 @@ import { useAuth } from '@/hooks/useAuth';
 import { useEvents } from '@/hooks/useEvents';
 import { useCategories } from '@/hooks/useCategories';
 import { useTags } from '@/hooks/useTags';
+import { useNotifications } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Calendar, Plus, LogOut, Clock, CheckCircle2, AlertCircle, Target, TrendingUp, X } from 'lucide-react';
-import { format, isToday, isThisWeek, isThisMonth, isBefore } from 'date-fns';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { 
+  Calendar, 
+  Plus, 
+  LogOut, 
+  Target, 
+  CheckCircle2, 
+  AlertCircle, 
+  TrendingUp,
+  Search,
+  Filter,
+  Bell,
+  Volume2,
+  VolumeX,
+  Settings
+} from 'lucide-react';
+import { isToday, isThisWeek } from 'date-fns';
 import { Event, EventFormData, Priority } from '@/types';
+import { EventDialog } from '@/components/EventDialog';
+import { EventCard } from '@/components/EventCard';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
-  const { events, isLoading, createEvent, toggleStage, deleteEvent, isCreating } = useEvents();
+  const { events, isLoading, createEvent, updateEvent, toggleStage, deleteEvent, isCreating, isUpdating } = useEvents();
   const { categories } = useCategories();
   const { tags } = useTags();
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const { preferences, updatePreferences } = useNotifications(events);
   
-  // Form state
-  const [formData, setFormData] = useState<EventFormData>({
-    title: '',
-    description: '',
-    venue: '',
-    organizer: '',
-    priority: 'medium',
-    category_id: '',
-    stages: [{ name: '', deadline: new Date() }],
-    tag_ids: [],
-  });
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterPriority, setFilterPriority] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('created');
 
-  const handleCreateEvent = async () => {
-    if (!formData.title) return;
+  const handleCreateEvent = async (formData: EventFormData) => {
     await createEvent(formData);
-    setFormData({
-      title: '',
-      description: '',
-      venue: '',
-      organizer: '',
-      priority: 'medium',
-      category_id: '',
-      stages: [{ name: '', deadline: new Date() }],
-      tag_ids: [],
-    });
-    setIsAddDialogOpen(false);
   };
 
-  const addStage = () => {
-    setFormData({
-      ...formData,
-      stages: [...formData.stages, { name: '', deadline: new Date() }],
-    });
+  const handleUpdateEvent = async (formData: EventFormData) => {
+    if (editingEvent) {
+      await updateEvent({ id: editingEvent.id, formData });
+      setEditingEvent(null);
+    }
   };
 
-  const removeStage = (index: number) => {
-    setFormData({
-      ...formData,
-      stages: formData.stages.filter((_, i) => i !== index),
-    });
+  const handleEdit = (event: Event) => {
+    setEditingEvent(event);
+    setIsDialogOpen(true);
   };
 
-  const updateStage = (index: number, field: 'name' | 'deadline', value: string | Date) => {
-    const newStages = [...formData.stages];
-    newStages[index] = { ...newStages[index], [field]: value };
-    setFormData({ ...formData, stages: newStages });
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this event?')) {
+      await deleteEvent(id);
+    }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) setEditingEvent(null);
   };
 
   // Analytics calculations
@@ -78,21 +85,35 @@ export default function Dashboard() {
   const completedEvents = events.filter(e => e.status === 'completed').length;
   const todayDeadlines = upcomingStages.filter(s => isToday(new Date(s.deadline))).length;
   const weekDeadlines = upcomingStages.filter(s => isThisWeek(new Date(s.deadline))).length;
-  const monthDeadlines = upcomingStages.filter(s => isThisMonth(new Date(s.deadline))).length;
 
-  // Filter events
-  const filteredEvents = events.filter(event =>
-    event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    event.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter and sort events
+  let filteredEvents = events.filter(event => {
+    const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      event.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      event.tags?.some(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesCategory = filterCategory === 'all' || event.category_id === filterCategory;
+    const matchesPriority = filterPriority === 'all' || event.priority === filterPriority;
+    
+    return matchesSearch && matchesCategory && matchesPriority;
+  });
 
-  const getPriorityColor = (priority: Priority) => {
-    switch (priority) {
-      case 'high': return 'bg-priority-high text-white';
-      case 'medium': return 'bg-priority-medium text-white';
-      case 'low': return 'bg-priority-low text-white';
+  // Sort
+  filteredEvents = [...filteredEvents].sort((a, b) => {
+    switch (sortBy) {
+      case 'deadline':
+        const aDeadline = a.stages?.[0]?.deadline || a.created_at;
+        const bDeadline = b.stages?.[0]?.deadline || b.created_at;
+        return new Date(aDeadline).getTime() - new Date(bDeadline).getTime();
+      case 'priority':
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        return priorityOrder[a.priority] - priorityOrder[b.priority];
+      case 'title':
+        return a.title.localeCompare(b.title);
+      default:
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     }
-  };
+  });
 
   if (isLoading) {
     return (
@@ -113,7 +134,65 @@ export default function Dashboard() {
             </div>
             <h1 className="text-xl font-heading font-bold">EventFlow</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {/* Notification settings */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="h-4 w-4" />
+                  {todayDeadlines > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-white text-xs rounded-full flex items-center justify-center">
+                      {todayDeadlines}
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuLabel className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Notification Settings
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <div className="p-3 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="sound" className="flex items-center gap-2">
+                      {preferences?.sound_enabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                      Sound Alerts
+                    </Label>
+                    <Switch
+                      id="sound"
+                      checked={preferences?.sound_enabled ?? true}
+                      onCheckedChange={(checked) => updatePreferences({ sound_enabled: checked })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="on-day">On the day</Label>
+                    <Switch
+                      id="on-day"
+                      checked={preferences?.notify_on_day ?? true}
+                      onCheckedChange={(checked) => updatePreferences({ notify_on_day: checked })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="1-day">1 day before</Label>
+                    <Switch
+                      id="1-day"
+                      checked={preferences?.notify_1_day_before ?? true}
+                      onCheckedChange={(checked) => updatePreferences({ notify_1_day_before: checked })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="7-days">7 days before</Label>
+                    <Switch
+                      id="7-days"
+                      checked={preferences?.notify_7_days_before ?? true}
+                      onCheckedChange={(checked) => updatePreferences({ notify_7_days_before: checked })}
+                    />
+                  </div>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
             <span className="text-sm text-muted-foreground hidden md:block">{user?.email}</span>
             <Button variant="ghost" size="icon" onClick={signOut}>
               <LogOut className="h-4 w-4" />
@@ -182,130 +261,65 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Search and Add */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8">
-          <Input
-            placeholder="Search events..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1"
-          />
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gradient-primary hover:opacity-90 gap-2">
-                <Plus className="h-4 w-4" /> Add Event
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="font-heading">Create New Event</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <Label>Event Title *</Label>
-                    <Input
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      placeholder="Hackathon 2024"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Description</Label>
-                    <Textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Event details..."
-                    />
-                  </div>
-                  <div>
-                    <Label>Category</Label>
-                    <Select value={formData.category_id} onValueChange={(v) => setFormData({ ...formData, category_id: v })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
-                              {cat.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Priority</Label>
-                    <Select value={formData.priority} onValueChange={(v: Priority) => setFormData({ ...formData, priority: v })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Venue</Label>
-                    <Input
-                      value={formData.venue}
-                      onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
-                      placeholder="Location"
-                    />
-                  </div>
-                  <div>
-                    <Label>Organizer</Label>
-                    <Input
-                      value={formData.organizer}
-                      onChange={(e) => setFormData({ ...formData, organizer: e.target.value })}
-                      placeholder="Organization name"
-                    />
-                  </div>
-                </div>
-
-                {/* Stages */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label>Stages / Deadlines</Label>
-                    <Button type="button" variant="outline" size="sm" onClick={addStage}>
-                      <Plus className="h-3 w-3 mr-1" /> Add Stage
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    {formData.stages.map((stage, idx) => (
-                      <div key={idx} className="flex gap-2 items-center">
-                        <Input
-                          placeholder="Stage name (e.g., Registration)"
-                          value={stage.name}
-                          onChange={(e) => updateStage(idx, 'name', e.target.value)}
-                          className="flex-1"
-                        />
-                        <Input
-                          type="datetime-local"
-                          value={stage.deadline instanceof Date ? format(stage.deadline, "yyyy-MM-dd'T'HH:mm") : ''}
-                          onChange={(e) => updateStage(idx, 'deadline', new Date(e.target.value))}
-                          className="w-48"
-                        />
-                        {formData.stages.length > 1 && (
-                          <Button type="button" variant="ghost" size="icon" onClick={() => removeStage(idx)}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <Button onClick={handleCreateEvent} className="w-full gradient-primary" disabled={isCreating}>
-                  {isCreating ? 'Creating...' : 'Create Event'}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+        {/* Search, Filter, and Add */}
+        <div className="flex flex-col lg:flex-row gap-4 mb-8">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search events, tags..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          
+          <div className="flex gap-2 flex-wrap">
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <SelectTrigger className="w-[140px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map(cat => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+                      {cat.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={filterPriority} onValueChange={setFilterPriority}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priority</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created">Newest First</SelectItem>
+                <SelectItem value="deadline">Deadline</SelectItem>
+                <SelectItem value="priority">Priority</SelectItem>
+                <SelectItem value="title">Title</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Button onClick={() => setIsDialogOpen(true)} className="gradient-primary hover:opacity-90 gap-2">
+              <Plus className="h-4 w-4" /> Add Event
+            </Button>
+          </div>
         </div>
 
         {/* Events List */}
@@ -314,77 +328,47 @@ export default function Dashboard() {
             <Card className="glass">
               <CardContent className="py-12 text-center">
                 <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-heading font-semibold mb-2">No events yet</h3>
-                <p className="text-muted-foreground mb-4">Create your first event to get started</p>
+                <h3 className="text-lg font-heading font-semibold mb-2">
+                  {searchQuery || filterCategory !== 'all' || filterPriority !== 'all' 
+                    ? 'No matching events' 
+                    : 'No events yet'}
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  {searchQuery || filterCategory !== 'all' || filterPriority !== 'all'
+                    ? 'Try adjusting your filters'
+                    : 'Create your first event to get started'}
+                </p>
+                {!searchQuery && filterCategory === 'all' && filterPriority === 'all' && (
+                  <Button onClick={() => setIsDialogOpen(true)} className="gradient-primary">
+                    <Plus className="h-4 w-4 mr-2" /> Create Event
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
             filteredEvents.map((event) => (
-              <Card key={event.id} className="glass hover:shadow-lg transition-shadow">
-                <CardContent className="py-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        {event.category && (
-                          <Badge style={{ backgroundColor: event.category.color }} className="text-white">
-                            {event.category.name}
-                          </Badge>
-                        )}
-                        <Badge className={getPriorityColor(event.priority)}>
-                          {event.priority}
-                        </Badge>
-                      </div>
-                      <h3 className="text-lg font-heading font-semibold">{event.title}</h3>
-                      {event.description && (
-                        <p className="text-sm text-muted-foreground mt-1">{event.description}</p>
-                      )}
-                      
-                      {/* Stages */}
-                      {event.stages && event.stages.length > 0 && (
-                        <div className="mt-4 space-y-2">
-                          {event.stages.map((stage) => (
-                            <div
-                              key={stage.id}
-                              className={`flex items-center gap-3 p-2 rounded-lg ${
-                                stage.is_completed ? 'bg-success/10' : 
-                                isBefore(new Date(stage.deadline), now) ? 'bg-destructive/10' : 'bg-muted'
-                              }`}
-                            >
-                              <button
-                                onClick={() => toggleStage({ stageId: stage.id, isCompleted: !stage.is_completed })}
-                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                                  stage.is_completed ? 'bg-success border-success' : 'border-muted-foreground'
-                                }`}
-                              >
-                                {stage.is_completed && <CheckCircle2 className="h-3 w-3 text-white" />}
-                              </button>
-                              <span className={stage.is_completed ? 'line-through text-muted-foreground' : ''}>
-                                {stage.name}
-                              </span>
-                              <span className="ml-auto text-sm text-muted-foreground flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {format(new Date(stage.deadline), 'MMM d, yyyy HH:mm')}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteEvent(event.id)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <EventCard
+                key={event.id}
+                event={event}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onToggleStage={(stageId, isCompleted) => toggleStage({ stageId, isCompleted })}
+              />
             ))
           )}
         </div>
       </main>
+
+      {/* Event Dialog */}
+      <EventDialog
+        open={isDialogOpen}
+        onOpenChange={handleDialogClose}
+        event={editingEvent}
+        categories={categories}
+        tags={tags}
+        onSubmit={editingEvent ? handleUpdateEvent : handleCreateEvent}
+        isSubmitting={isCreating || isUpdating}
+      />
     </div>
   );
 }

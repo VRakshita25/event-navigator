@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { Event, EventStage, EventFormData, Priority, EventStatus } from '@/types';
+import { Event, EventStage, EventFormData, Priority, EventStatus, EventAttachment } from '@/types';
 import { useToast } from './use-toast';
 
 export function useEvents() {
@@ -19,7 +19,8 @@ export function useEvents() {
         .select(`
           *,
           category:categories(*),
-          stages:event_stages(*)
+          stages:event_stages(*),
+          attachments:event_attachments(*)
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
@@ -44,6 +45,7 @@ export function useEvents() {
         priority: event.priority as Priority,
         status: event.status as EventStatus,
         stages: (event.stages || []).sort((a: EventStage, b: EventStage) => a.sort_order - b.sort_order),
+        attachments: (event.attachments || []) as EventAttachment[],
         tags: eventTags
           ?.filter(et => et.event_id === event.id)
           .map(et => allTags?.find(t => t.id === et.tag_id))
@@ -82,12 +84,14 @@ export function useEvents() {
         const { error: stagesError } = await supabase
           .from('event_stages')
           .insert(
-            formData.stages.map((stage, index) => ({
-              event_id: event.id,
-              name: stage.name,
-              deadline: stage.deadline.toISOString(),
-              sort_order: index,
-            }))
+            formData.stages
+              .filter(stage => stage.name.trim())
+              .map((stage, index) => ({
+                event_id: event.id,
+                name: stage.name,
+                deadline: stage.deadline.toISOString(),
+                sort_order: index,
+              }))
           );
 
         if (stagesError) throw stagesError;
@@ -105,6 +109,22 @@ export function useEvents() {
           );
 
         if (tagsError) throw tagsError;
+      }
+
+      // Create attachments
+      if (formData.attachments && formData.attachments.length > 0) {
+        const { error: attachError } = await supabase
+          .from('event_attachments')
+          .insert(
+            formData.attachments.map(att => ({
+              event_id: event.id,
+              name: att.name,
+              type: att.type,
+              url: att.url,
+            }))
+          );
+
+        if (attachError) throw attachError;
       }
 
       return event;
@@ -154,12 +174,15 @@ export function useEvents() {
         const { error: stagesError } = await supabase
           .from('event_stages')
           .insert(
-            formData.stages.map((stage, index) => ({
-              event_id: id,
-              name: stage.name,
-              deadline: stage.deadline.toISOString(),
-              sort_order: index,
-            }))
+            formData.stages
+              .filter(stage => stage.name.trim())
+              .map((stage, index) => ({
+                event_id: id,
+                name: stage.name,
+                deadline: stage.deadline instanceof Date ? stage.deadline.toISOString() : new Date(stage.deadline).toISOString(),
+                sort_order: index,
+                is_completed: stage.is_completed || false,
+              }))
           );
 
         if (stagesError) throw stagesError;
@@ -179,6 +202,24 @@ export function useEvents() {
           );
 
         if (tagsError) throw tagsError;
+      }
+
+      // Delete existing attachments and recreate
+      await supabase.from('event_attachments').delete().eq('event_id', id);
+      
+      if (formData.attachments && formData.attachments.length > 0) {
+        const { error: attachError } = await supabase
+          .from('event_attachments')
+          .insert(
+            formData.attachments.map(att => ({
+              event_id: id,
+              name: att.name,
+              type: att.type,
+              url: att.url,
+            }))
+          );
+
+        if (attachError) throw attachError;
       }
 
       return { id };

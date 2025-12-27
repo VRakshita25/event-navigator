@@ -28,6 +28,17 @@ export interface Tag {
 export type Priority = 'low' | 'medium' | 'high';
 export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'missed';
 
+export interface EventAttachment {
+  id: string;
+  event_id: string;
+  name: string;
+  type: 'file' | 'link';
+  url: string;
+  file_size: number | null;
+  mime_type: string | null;
+  created_at: string;
+}
+
 export interface Event {
   id: string;
   user_id: string;
@@ -46,6 +57,7 @@ export interface Event {
   category?: Category | null;
   stages?: EventStage[];
   tags?: Tag[];
+  attachments?: EventAttachment[];
 }
 
 export interface EventStage {
@@ -71,6 +83,7 @@ export interface NotificationPreferences {
   notify_on_day: boolean;
   notify_1_day_before: boolean;
   notify_7_days_before: boolean;
+  sound_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -86,10 +99,17 @@ export interface EventFormData {
   notes?: string;
   event_date?: Date;
   stages: {
+    id?: string;
     name: string;
     deadline: Date;
+    is_completed?: boolean;
   }[];
   tag_ids: string[];
+  attachments?: {
+    name: string;
+    type: 'file' | 'link';
+    url: string;
+  }[];
 }
 
 export interface AnalyticsData {
