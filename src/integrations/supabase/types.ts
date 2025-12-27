@@ -44,6 +44,47 @@ export type Database = {
         }
         Relationships: []
       }
+      event_attachments: {
+        Row: {
+          created_at: string
+          event_id: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          name: string
+          type: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          name: string
+          type: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          name?: string
+          type?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_attachments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_stages: {
         Row: {
           completed_at: string | null
@@ -184,6 +225,7 @@ export type Database = {
           notify_1_day_before: boolean | null
           notify_7_days_before: boolean | null
           notify_on_day: boolean | null
+          sound_enabled: boolean | null
           updated_at: string
           user_id: string
         }
@@ -193,6 +235,7 @@ export type Database = {
           notify_1_day_before?: boolean | null
           notify_7_days_before?: boolean | null
           notify_on_day?: boolean | null
+          sound_enabled?: boolean | null
           updated_at?: string
           user_id: string
         }
@@ -202,6 +245,7 @@ export type Database = {
           notify_1_day_before?: boolean | null
           notify_7_days_before?: boolean | null
           notify_on_day?: boolean | null
+          sound_enabled?: boolean | null
           updated_at?: string
           user_id?: string
         }
