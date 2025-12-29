@@ -81,10 +81,10 @@ export default function Dashboard() {
   // Analytics calculations
   const now = new Date();
   const allStages = events.flatMap(e => e.stages || []);
-  const upcomingStages = allStages.filter(s => !s.is_completed && new Date(s.deadline) > now);
+  const upcomingStages = allStages.filter(s => !s.is_completed && new Date(s.deadline_end) > now);
   const completedEvents = events.filter(e => e.status === 'completed').length;
-  const todayDeadlines = upcomingStages.filter(s => isToday(new Date(s.deadline))).length;
-  const weekDeadlines = upcomingStages.filter(s => isThisWeek(new Date(s.deadline))).length;
+  const todayDeadlines = upcomingStages.filter(s => isToday(new Date(s.deadline_end))).length;
+  const weekDeadlines = upcomingStages.filter(s => isThisWeek(new Date(s.deadline_end))).length;
 
   // Filter and sort events
   let filteredEvents = events.filter(event => {
@@ -102,8 +102,8 @@ export default function Dashboard() {
   filteredEvents = [...filteredEvents].sort((a, b) => {
     switch (sortBy) {
       case 'deadline':
-        const aDeadline = a.stages?.[0]?.deadline || a.created_at;
-        const bDeadline = b.stages?.[0]?.deadline || b.created_at;
+        const aDeadline = a.stages?.[0]?.deadline_end || a.created_at;
+        const bDeadline = b.stages?.[0]?.deadline_end || b.created_at;
         return new Date(aDeadline).getTime() - new Date(bDeadline).getTime();
       case 'priority':
         const priorityOrder = { high: 0, medium: 1, low: 2 };

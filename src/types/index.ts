@@ -64,7 +64,8 @@ export interface EventStage {
   id: string;
   event_id: string;
   name: string;
-  deadline: string;
+  deadline_start: string | null;
+  deadline_end: string;
   is_completed: boolean;
   completed_at: string | null;
   sort_order: number;
@@ -88,6 +89,14 @@ export interface NotificationPreferences {
   updated_at: string;
 }
 
+export interface DismissedNotification {
+  id: string;
+  user_id: string;
+  notification_key: string;
+  dismissed_until: string | null;
+  created_at: string;
+}
+
 export interface EventFormData {
   title: string;
   description?: string;
@@ -101,7 +110,8 @@ export interface EventFormData {
   stages: {
     id?: string;
     name: string;
-    deadline: Date;
+    deadline_start?: Date | null;
+    deadline_end?: Date | null;
     is_completed?: boolean;
   }[];
   tag_ids: string[];
@@ -109,6 +119,7 @@ export interface EventFormData {
     name: string;
     type: 'file' | 'link';
     url: string;
+    file?: File;
   }[];
 }
 

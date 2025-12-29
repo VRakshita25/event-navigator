@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X, Link as LinkIcon, Upload, Trash2 } from 'lucide-react';
+import { Plus, X, Link as LinkIcon, Upload, Trash2, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { Event, EventFormData, Priority, Category, Tag } from '@/types';
 
@@ -31,6 +31,7 @@ export function EventDialog({
   isSubmitting,
 }: EventDialogProps) {
   const isEditing = !!event;
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState<EventFormData>({
     title: '',
@@ -41,7 +42,7 @@ export function EventDialog({
     priority: 'medium',
     category_id: '',
     notes: '',
-    stages: [{ name: '', deadline: new Date() }],
+    stages: [{ name: '', deadline_start: null, deadline_end: null }],
     tag_ids: [],
     attachments: [],
   });
@@ -63,9 +64,10 @@ export function EventDialog({
         stages: event.stages?.map(s => ({
           id: s.id,
           name: s.name,
-          deadline: new Date(s.deadline),
+          deadline_start: s.deadline_start ? new Date(s.deadline_start) : null,
+          deadline_end: new Date(s.deadline_end),
           is_completed: s.is_completed,
-        })) || [{ name: '', deadline: new Date() }],
+        })) || [{ name: '', deadline_start: null, deadline_end: null }],
         tag_ids: event.tags?.map(t => t.id) || [],
         attachments: event.attachments?.map(a => ({
           name: a.name,
@@ -83,7 +85,7 @@ export function EventDialog({
         priority: 'medium',
         category_id: '',
         notes: '',
-        stages: [{ name: '', deadline: new Date() }],
+        stages: [{ name: '', deadline_start: null, deadline_end: null }],
         tag_ids: [],
         attachments: [],
       });
@@ -99,7 +101,7 @@ export function EventDialog({
   const addStage = () => {
     setFormData({
       ...formData,
-      stages: [...formData.stages, { name: '', deadline: new Date() }],
+      stages: [...formData.stages, { name: '', deadline_start: null, deadline_end: null }],
     });
   };
 
@@ -110,7 +112,7 @@ export function EventDialog({
     });
   };
 
-  const updateStage = (index: number, field: 'name' | 'deadline', value: string | Date) => {
+  const updateStage = (index: number, field: 'name' | 'deadline_start' | 'deadline_end', value: string | Date | null) => {
     const newStages = [...formData.stages];
     newStages[index] = { ...newStages[index], [field]: value };
     setFormData({ ...formData, stages: newStages });
@@ -132,6 +134,27 @@ export function EventDialog({
       attachments: [...(formData.attachments || []), { ...newLink, type: 'link' }],
     });
     setNewLink({ name: '', url: '' });
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newAttachments = Array.from(files).map(file => ({
+      name: file.name,
+      type: 'file' as const,
+      url: URL.createObjectURL(file),
+      file,
+    }));
+
+    setFormData({
+      ...formData,
+      attachments: [...(formData.attachments || []), ...newAttachments],
+    });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const removeAttachment = (index: number) => {
@@ -283,33 +306,58 @@ export function EventDialog({
           
           <TabsContent value="stages" className="space-y-4 py-4">
             <div className="flex items-center justify-between mb-2">
-              <Label>Stages / Deadlines</Label>
+              <div>
+                <Label>Stages / Deadlines</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  From date is optional. Only add it if the stage has a start date.
+                </p>
+              </div>
               <Button type="button" variant="outline" size="sm" onClick={addStage}>
                 <Plus className="h-3 w-3 mr-1" /> Add Stage
               </Button>
             </div>
             <div className="space-y-3">
               {formData.stages.map((stage, idx) => (
-                <div key={idx} className="flex gap-2 items-center p-3 rounded-lg bg-muted/50">
-                  <div className="flex-1 grid grid-cols-2 gap-2">
+                <div key={idx} className="p-3 rounded-lg bg-muted/50 space-y-3">
+                  <div className="flex gap-2 items-center">
                     <Input
                       placeholder="Stage name (e.g., Registration)"
                       value={stage.name}
                       onChange={(e) => updateStage(idx, 'name', e.target.value)}
+                      className="flex-1"
                     />
-                    <Input
-                      type="datetime-local"
-                      value={stage.deadline instanceof Date 
-                        ? format(stage.deadline, "yyyy-MM-dd'T'HH:mm") 
-                        : format(new Date(stage.deadline), "yyyy-MM-dd'T'HH:mm")}
-                      onChange={(e) => updateStage(idx, 'deadline', new Date(e.target.value))}
-                    />
+                    {formData.stages.length > 1 && (
+                      <Button type="button" variant="ghost" size="icon" onClick={() => removeStage(idx)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
-                  {formData.stages.length > 1 && (
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removeStage(idx)}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">From (optional)</Label>
+                      <Input
+                        type="datetime-local"
+                        value={stage.deadline_start instanceof Date 
+                          ? format(stage.deadline_start, "yyyy-MM-dd'T'HH:mm") 
+                          : stage.deadline_start 
+                            ? format(new Date(stage.deadline_start), "yyyy-MM-dd'T'HH:mm")
+                            : ''}
+                        onChange={(e) => updateStage(idx, 'deadline_start', e.target.value ? new Date(e.target.value) : null)}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">To / Deadline</Label>
+                      <Input
+                        type="datetime-local"
+                        value={stage.deadline_end instanceof Date 
+                          ? format(stage.deadline_end, "yyyy-MM-dd'T'HH:mm") 
+                          : stage.deadline_end 
+                            ? format(new Date(stage.deadline_end), "yyyy-MM-dd'T'HH:mm")
+                            : ''}
+                        onChange={(e) => updateStage(idx, 'deadline_end', e.target.value ? new Date(e.target.value) : null)}
+                      />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -317,6 +365,36 @@ export function EventDialog({
           
           <TabsContent value="attachments" className="space-y-4 py-4">
             <div className="space-y-4">
+              {/* File Upload */}
+              <div>
+                <Label className="flex items-center gap-2">
+                  <Upload className="h-4 w-4" /> Upload Files
+                </Label>
+                <div className="mt-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  <label htmlFor="file-upload">
+                    <Button type="button" variant="outline" className="cursor-pointer" asChild>
+                      <span>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Choose Files
+                      </span>
+                    </Button>
+                  </label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Supports PDF, Word, Excel, PowerPoint, and images
+                  </p>
+                </div>
+              </div>
+
+              {/* Link Input */}
               <div>
                 <Label className="flex items-center gap-2">
                   <LinkIcon className="h-4 w-4" /> Add Link
@@ -343,20 +421,26 @@ export function EventDialog({
               {/* Attachment list */}
               {formData.attachments && formData.attachments.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Attachments</Label>
+                  <Label>Attachments ({formData.attachments.length})</Label>
                   {formData.attachments.map((att, idx) => (
                     <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                       <div className="flex items-center gap-2">
-                        <LinkIcon className="h-4 w-4 text-primary" />
+                        {att.type === 'file' ? (
+                          <FileText className="h-4 w-4 text-primary" />
+                        ) : (
+                          <LinkIcon className="h-4 w-4 text-primary" />
+                        )}
                         <span className="font-medium">{att.name}</span>
-                        <a 
-                          href={att.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-xs text-primary hover:underline truncate max-w-[200px]"
-                        >
-                          {att.url}
-                        </a>
+                        {att.type === 'link' && (
+                          <a 
+                            href={att.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline truncate max-w-[200px]"
+                          >
+                            {att.url}
+                          </a>
+                        )}
                       </div>
                       <Button 
                         type="button" 
