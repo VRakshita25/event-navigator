@@ -104,7 +104,7 @@ export function useNotifications(events: Event[]) {
         event.stages?.forEach(stage => {
           if (stage.is_completed) return;
 
-          const deadline = new Date(stage.deadline);
+          const deadline = new Date(stage.deadline_end);
           const notificationKey = `${stage.id}-${deadline.toDateString()}`;
 
           if (notifiedRef.current.has(notificationKey)) return;

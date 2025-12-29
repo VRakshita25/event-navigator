@@ -44,7 +44,13 @@ export function useEvents() {
         ...event,
         priority: event.priority as Priority,
         status: event.status as EventStatus,
-        stages: (event.stages || []).sort((a: EventStage, b: EventStage) => a.sort_order - b.sort_order),
+        stages: (event.stages || [])
+          .map((s: any) => ({
+            ...s,
+            deadline_start: s.deadline_start || null,
+            deadline_end: s.deadline_end,
+          }))
+          .sort((a: EventStage, b: EventStage) => a.sort_order - b.sort_order),
         attachments: (event.attachments || []) as EventAttachment[],
         tags: eventTags
           ?.filter(et => et.event_id === event.id)
@@ -80,18 +86,18 @@ export function useEvents() {
       if (eventError) throw eventError;
 
       // Create stages
-      if (formData.stages.length > 0) {
+      const validStages = formData.stages.filter(stage => stage.name.trim());
+      if (validStages.length > 0) {
         const { error: stagesError } = await supabase
           .from('event_stages')
           .insert(
-            formData.stages
-              .filter(stage => stage.name.trim())
-              .map((stage, index) => ({
-                event_id: event.id,
-                name: stage.name,
-                deadline: stage.deadline.toISOString(),
-                sort_order: index,
-              }))
+            validStages.map((stage, index) => ({
+              event_id: event.id,
+              name: stage.name,
+              deadline_start: stage.deadline_start?.toISOString() || null,
+              deadline_end: stage.deadline_end?.toISOString() || new Date().toISOString(),
+              sort_order: index,
+            }))
           );
 
         if (stagesError) throw stagesError;
@@ -113,18 +119,50 @@ export function useEvents() {
 
       // Create attachments
       if (formData.attachments && formData.attachments.length > 0) {
-        const { error: attachError } = await supabase
-          .from('event_attachments')
-          .insert(
-            formData.attachments.map(att => ({
+        // Handle file uploads for 'file' type attachments
+        const attachmentsToInsert = [];
+        
+        for (const att of formData.attachments) {
+          if (att.type === 'file' && att.file) {
+            // Upload file to storage
+            const fileExt = att.file.name.split('.').pop();
+            const filePath = `${user.id}/${event.id}/${Date.now()}.${fileExt}`;
+            
+            const { error: uploadError } = await supabase.storage
+              .from('event-attachments')
+              .upload(filePath, att.file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('event-attachments')
+              .getPublicUrl(filePath);
+
+            attachmentsToInsert.push({
+              event_id: event.id,
+              name: att.name,
+              type: 'file' as const,
+              url: publicUrl,
+              file_size: att.file.size,
+              mime_type: att.file.type,
+            });
+          } else {
+            attachmentsToInsert.push({
               event_id: event.id,
               name: att.name,
               type: att.type,
               url: att.url,
-            }))
-          );
+            });
+          }
+        }
 
-        if (attachError) throw attachError;
+        if (attachmentsToInsert.length > 0) {
+          const { error: attachError } = await supabase
+            .from('event_attachments')
+            .insert(attachmentsToInsert);
+
+          if (attachError) throw attachError;
+        }
       }
 
       return event;
@@ -170,19 +208,23 @@ export function useEvents() {
       // Delete existing stages and recreate
       await supabase.from('event_stages').delete().eq('event_id', id);
       
-      if (formData.stages.length > 0) {
+      const validStages = formData.stages.filter(stage => stage.name.trim());
+      if (validStages.length > 0) {
         const { error: stagesError } = await supabase
           .from('event_stages')
           .insert(
-            formData.stages
-              .filter(stage => stage.name.trim())
-              .map((stage, index) => ({
-                event_id: id,
-                name: stage.name,
-                deadline: stage.deadline instanceof Date ? stage.deadline.toISOString() : new Date(stage.deadline).toISOString(),
-                sort_order: index,
-                is_completed: stage.is_completed || false,
-              }))
+            validStages.map((stage, index) => ({
+              event_id: id,
+              name: stage.name,
+              deadline_start: stage.deadline_start instanceof Date 
+                ? stage.deadline_start.toISOString() 
+                : stage.deadline_start || null,
+              deadline_end: stage.deadline_end instanceof Date 
+                ? stage.deadline_end.toISOString() 
+                : stage.deadline_end || new Date().toISOString(),
+              sort_order: index,
+              is_completed: stage.is_completed || false,
+            }))
           );
 
         if (stagesError) throw stagesError;
@@ -208,18 +250,48 @@ export function useEvents() {
       await supabase.from('event_attachments').delete().eq('event_id', id);
       
       if (formData.attachments && formData.attachments.length > 0) {
-        const { error: attachError } = await supabase
-          .from('event_attachments')
-          .insert(
-            formData.attachments.map(att => ({
+        const attachmentsToInsert = [];
+        
+        for (const att of formData.attachments) {
+          if (att.type === 'file' && att.file) {
+            const fileExt = att.file.name.split('.').pop();
+            const filePath = `${user.id}/${id}/${Date.now()}.${fileExt}`;
+            
+            const { error: uploadError } = await supabase.storage
+              .from('event-attachments')
+              .upload(filePath, att.file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('event-attachments')
+              .getPublicUrl(filePath);
+
+            attachmentsToInsert.push({
+              event_id: id,
+              name: att.name,
+              type: 'file' as const,
+              url: publicUrl,
+              file_size: att.file.size,
+              mime_type: att.file.type,
+            });
+          } else {
+            attachmentsToInsert.push({
               event_id: id,
               name: att.name,
               type: att.type,
               url: att.url,
-            }))
-          );
+            });
+          }
+        }
 
-        if (attachError) throw attachError;
+        if (attachmentsToInsert.length > 0) {
+          const { error: attachError } = await supabase
+            .from('event_attachments')
+            .insert(attachmentsToInsert);
+
+          if (attachError) throw attachError;
+        }
       }
 
       return { id };

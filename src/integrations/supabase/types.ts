@@ -44,6 +44,30 @@ export type Database = {
         }
         Relationships: []
       }
+      dismissed_notifications: {
+        Row: {
+          created_at: string
+          dismissed_until: string | null
+          id: string
+          notification_key: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dismissed_until?: string | null
+          id?: string
+          notification_key: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dismissed_until?: string | null
+          id?: string
+          notification_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       event_attachments: {
         Row: {
           created_at: string
@@ -89,7 +113,8 @@ export type Database = {
         Row: {
           completed_at: string | null
           created_at: string
-          deadline: string
+          deadline_end: string
+          deadline_start: string | null
           event_id: string
           id: string
           is_completed: boolean | null
@@ -99,7 +124,8 @@ export type Database = {
         Insert: {
           completed_at?: string | null
           created_at?: string
-          deadline: string
+          deadline_end: string
+          deadline_start?: string | null
           event_id: string
           id?: string
           is_completed?: boolean | null
@@ -109,7 +135,8 @@ export type Database = {
         Update: {
           completed_at?: string | null
           created_at?: string
-          deadline?: string
+          deadline_end?: string
+          deadline_start?: string | null
           event_id?: string
           id?: string
           is_completed?: boolean | null

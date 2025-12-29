@@ -158,7 +158,7 @@ export function EventCard({ event, onEdit, onDelete, onToggleStage }: EventCardP
           {expanded && event.stages && (
             <div className="mt-4 space-y-2">
               {event.stages.map((stage) => {
-                const isPast = isBefore(new Date(stage.deadline), now) && !stage.is_completed;
+                const isPast = isBefore(new Date(stage.deadline_end), now) && !stage.is_completed;
                 return (
                   <div
                     key={stage.id}
@@ -182,7 +182,7 @@ export function EventCard({ event, onEdit, onDelete, onToggleStage }: EventCardP
                       isPast ? 'text-destructive' : 'text-muted-foreground'
                     }`}>
                       <Clock className="h-3 w-3" />
-                      {format(new Date(stage.deadline), 'MMM d, HH:mm')}
+                      {format(new Date(stage.deadline_end), 'MMM d, HH:mm')}
                     </span>
                   </div>
                 );
