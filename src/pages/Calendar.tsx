@@ -104,10 +104,28 @@ export default function CalendarPage() {
             </div>
             <h1 className="text-xl font-heading font-bold">EventFlow</h1>
           </div>
-          <nav className="flex items-center gap-2">
-            <NavLink to="/dashboard">Dashboard</NavLink>
-            <NavLink to="/calendar" isActive>Calendar</NavLink>
-            <NavLink to="/timeline">Timeline</NavLink>
+          <nav className="flex items-center gap-4">
+            <NavLink 
+              to="/dashboard" 
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              activeClassName="text-foreground font-medium"
+            >
+              Dashboard
+            </NavLink>
+            <NavLink 
+              to="/calendar" 
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              activeClassName="text-foreground font-medium"
+            >
+              Calendar
+            </NavLink>
+            <NavLink 
+              to="/timeline" 
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              activeClassName="text-foreground font-medium"
+            >
+              Timeline
+            </NavLink>
           </nav>
         </div>
       </header>
