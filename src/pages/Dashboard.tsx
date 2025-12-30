@@ -4,6 +4,7 @@ import { useEvents } from '@/hooks/useEvents';
 import { useCategories } from '@/hooks/useCategories';
 import { useTags } from '@/hooks/useTags';
 import { useNotifications } from '@/hooks/useNotifications';
+import { NavLink } from '@/components/NavLink';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -134,6 +135,29 @@ export default function Dashboard() {
             </div>
             <h1 className="text-xl font-heading font-bold">EventFlow</h1>
           </div>
+          <nav className="hidden md:flex items-center gap-4">
+            <NavLink 
+              to="/dashboard" 
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              activeClassName="text-foreground font-medium"
+            >
+              Dashboard
+            </NavLink>
+            <NavLink 
+              to="/calendar" 
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              activeClassName="text-foreground font-medium"
+            >
+              Calendar
+            </NavLink>
+            <NavLink 
+              to="/timeline" 
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              activeClassName="text-foreground font-medium"
+            >
+              Timeline
+            </NavLink>
+          </nav>
           <div className="flex items-center gap-2">
             {/* Notification settings */}
             <DropdownMenu>
