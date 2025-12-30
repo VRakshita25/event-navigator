@@ -117,16 +117,16 @@ export function useEvents() {
         if (tagsError) throw tagsError;
       }
 
-      // Create attachments
-      if (formData.attachments && formData.attachments.length > 0) {
-        // Handle file uploads for 'file' type attachments
+      // Create attachments - even if just one
+      const attachments = formData.attachments || [];
+      if (attachments.length > 0) {
         const attachmentsToInsert = [];
         
-        for (const att of formData.attachments) {
+        for (const att of attachments) {
           if (att.type === 'file' && att.file) {
             // Upload file to storage
             const fileExt = att.file.name.split('.').pop();
-            const filePath = `${user.id}/${event.id}/${Date.now()}.${fileExt}`;
+            const filePath = `${user.id}/${event.id}/${Date.now()}-${att.name}.${fileExt}`;
             
             const { error: uploadError } = await supabase.storage
               .from('event-attachments')
@@ -146,11 +146,11 @@ export function useEvents() {
               file_size: att.file.size,
               mime_type: att.file.type,
             });
-          } else {
+          } else if (att.type === 'link' && att.url) {
             attachmentsToInsert.push({
               event_id: event.id,
               name: att.name,
-              type: att.type,
+              type: 'link' as const,
               url: att.url,
             });
           }
@@ -249,13 +249,14 @@ export function useEvents() {
       // Delete existing attachments and recreate
       await supabase.from('event_attachments').delete().eq('event_id', id);
       
-      if (formData.attachments && formData.attachments.length > 0) {
+      const attachments = formData.attachments || [];
+      if (attachments.length > 0) {
         const attachmentsToInsert = [];
         
-        for (const att of formData.attachments) {
+        for (const att of attachments) {
           if (att.type === 'file' && att.file) {
             const fileExt = att.file.name.split('.').pop();
-            const filePath = `${user.id}/${id}/${Date.now()}.${fileExt}`;
+            const filePath = `${user.id}/${id}/${Date.now()}-${att.name}.${fileExt}`;
             
             const { error: uploadError } = await supabase.storage
               .from('event-attachments')
@@ -275,7 +276,15 @@ export function useEvents() {
               file_size: att.file.size,
               mime_type: att.file.type,
             });
-          } else {
+          } else if (att.type === 'link' && att.url) {
+            attachmentsToInsert.push({
+              event_id: id,
+              name: att.name,
+              type: 'link' as const,
+              url: att.url,
+            });
+          } else if (att.url) {
+            // Existing file attachment (already has URL from storage)
             attachmentsToInsert.push({
               event_id: id,
               name: att.name,
