@@ -30,16 +30,38 @@ export default function ResetPassword() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if we have a valid recovery session
-    const checkSession = async () => {
+    // Handle the hash fragment from Supabase auth redirect
+    // Supabase sends tokens in the URL hash for password recovery
+    const handleAuthRedirect = async () => {
+      // First, check if we have hash params (from email link)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      const type = hashParams.get('type');
+
+      if (accessToken && type === 'recovery') {
+        // Set the session using the tokens from the URL
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || '',
+        });
+        
+        if (!error) {
+          setIsValidSession(true);
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      // Fallback: check existing session
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setIsValidSession(true);
       }
       setIsLoading(false);
     };
-    
-    // Listen for auth state changes (recovery link will set session)
+
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
         setIsValidSession(true);
@@ -47,7 +69,7 @@ export default function ResetPassword() {
       }
     });
 
-    checkSession();
+    handleAuthRedirect();
 
     return () => {
       subscription.unsubscribe();
