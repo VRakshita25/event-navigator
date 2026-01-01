@@ -24,7 +24,8 @@ import {
   Bell,
   Volume2,
   VolumeX,
-  Settings
+  Settings,
+  User
 } from 'lucide-react';
 import { isToday, isThisWeek } from 'date-fns';
 import { Event, EventFormData, Priority } from '@/types';
@@ -157,6 +158,13 @@ export default function Dashboard() {
             >
               Timeline
             </NavLink>
+            <NavLink 
+              to="/settings" 
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              activeClassName="text-foreground font-medium"
+            >
+              Settings
+            </NavLink>
           </nav>
           <div className="flex items-center gap-2">
             {/* Notification settings */}
@@ -217,10 +225,39 @@ export default function Dashboard() {
               </DropdownMenuContent>
             </DropdownMenu>
             
-            <span className="text-sm text-muted-foreground hidden md:block">{user?.email}</span>
-            <Button variant="ghost" size="icon" onClick={signOut}>
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <User className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <p className="text-sm font-medium">{user?.email}</p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <NavLink to="/profile" className="block">
+                  <div className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-accent rounded-sm cursor-pointer">
+                    <User className="h-4 w-4" />
+                    Profile
+                  </div>
+                </NavLink>
+                <NavLink to="/settings" className="block">
+                  <div className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-accent rounded-sm cursor-pointer">
+                    <Settings className="h-4 w-4" />
+                    Settings
+                  </div>
+                </NavLink>
+                <DropdownMenuSeparator />
+                <div 
+                  className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-accent rounded-sm cursor-pointer text-destructive"
+                  onClick={signOut}
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
