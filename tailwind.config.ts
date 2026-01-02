@@ -13,15 +13,15 @@ export default {
   		}
   	},
   	extend: {
-  		fontFamily: {
-  			heading: [
-  				'Outfit',
-  				'sans-serif'
-  			],
-  			body: [
-  				'Space Grotesk',
-  				'sans-serif'
-  			],
+		fontFamily: {
+			heading: [
+				'Sora',
+				'sans-serif'
+			],
+			body: [
+				'DM Sans',
+				'sans-serif'
+			],
   			sans: [
   				'ui-sans-serif',
   				'system-ui',
@@ -39,17 +39,17 @@ export default {
   				'Times',
   				'serif'
   			],
-  			mono: [
-  				'Geist Mono',
-  				'ui-monospace',
-  				'SFMono-Regular',
-  				'Menlo',
-  				'Monaco',
-  				'Consolas',
-  				'Liberation Mono',
-  				'Courier New',
-  				'monospace'
-  			]
+			mono: [
+				'JetBrains Mono',
+				'ui-monospace',
+				'SFMono-Regular',
+				'Menlo',
+				'Monaco',
+				'Consolas',
+				'Liberation Mono',
+				'Courier New',
+				'monospace'
+			]
   		},
   		colors: {
   			border: 'hsl(var(--border))',

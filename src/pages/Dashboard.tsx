@@ -4,6 +4,7 @@ import { useEvents } from '@/hooks/useEvents';
 import { useCategories } from '@/hooks/useCategories';
 import { useTags } from '@/hooks/useTags';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useProfile } from '@/hooks/useProfile';
 import { NavLink } from '@/components/NavLink';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   Calendar, 
   Plus, 
@@ -25,7 +27,9 @@ import {
   Volume2,
   VolumeX,
   Settings,
-  User
+  User,
+  LayoutDashboard,
+  Clock
 } from 'lucide-react';
 import { isToday, isThisWeek } from 'date-fns';
 import { Event, EventFormData, Priority } from '@/types';
@@ -45,6 +49,7 @@ export default function Dashboard() {
   const { categories } = useCategories();
   const { tags } = useTags();
   const { preferences, updatePreferences } = useNotifications(events);
+  const { profile, getInitials } = useProfile();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -128,45 +133,46 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 gradient-primary rounded-lg">
-              <Calendar className="h-5 w-5 text-white" />
+      <header className="border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 gradient-primary rounded-xl shadow-lg">
+                <Calendar className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <h1 className="text-xl font-heading font-bold tracking-tight">EventFlow</h1>
             </div>
-            <h1 className="text-xl font-heading font-bold">EventFlow</h1>
           </div>
-          <nav className="hidden md:flex items-center gap-4">
+          
+          {/* Navigation - Button Style */}
+          <nav className="hidden md:flex items-center gap-2 bg-muted/50 p-1.5 rounded-xl">
             <NavLink 
               to="/dashboard" 
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              activeClassName="text-foreground font-medium"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/60 transition-all duration-200 text-sm font-medium"
+              activeClassName="bg-background text-foreground shadow-sm"
             >
+              <LayoutDashboard className="h-4 w-4" />
               Dashboard
             </NavLink>
             <NavLink 
               to="/calendar" 
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              activeClassName="text-foreground font-medium"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/60 transition-all duration-200 text-sm font-medium"
+              activeClassName="bg-background text-foreground shadow-sm"
             >
+              <Calendar className="h-4 w-4" />
               Calendar
             </NavLink>
             <NavLink 
               to="/timeline" 
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              activeClassName="text-foreground font-medium"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/60 transition-all duration-200 text-sm font-medium"
+              activeClassName="bg-background text-foreground shadow-sm"
             >
+              <Clock className="h-4 w-4" />
               Timeline
             </NavLink>
-            <NavLink 
-              to="/settings" 
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              activeClassName="text-foreground font-medium"
-            >
-              Settings
-            </NavLink>
           </nav>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-3">
             {/* Notification settings */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -225,15 +231,24 @@ export default function Dashboard() {
               </DropdownMenuContent>
             </DropdownMenu>
             
+            {/* User Profile Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <User className="h-4 w-4" />
+                <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 p-0 overflow-hidden ring-2 ring-border hover:ring-primary/50 transition-all">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={profile?.avatar_url || undefined} alt="Profile" />
+                    <AvatarFallback className="gradient-primary text-primary-foreground text-sm font-semibold">
+                      {getInitials()}
+                    </AvatarFallback>
+                  </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel className="font-normal">
-                  <p className="text-sm font-medium">{user?.email}</p>
+                  <div className="flex flex-col gap-1">
+                    <p className="text-sm font-semibold">{profile?.display_name || 'User'}</p>
+                    <p className="text-xs text-muted-foreground">{user?.email}</p>
+                  </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <NavLink to="/profile" className="block">
