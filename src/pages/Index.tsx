@@ -11,8 +11,7 @@ import {
   Target, 
   BarChart3, 
   CheckCircle2,
-  ArrowRight,
-  GraduationCap
+  ArrowRight
 } from 'lucide-react';
 
 export default function Index() {
@@ -92,10 +91,6 @@ export default function Index() {
         </div>
         
         <div className="container mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6">
-            <GraduationCap className="h-4 w-4" />
-            <span className="text-sm font-medium">Built for Engineering Students</span>
-          </div>
           
           <h1 className="text-4xl md:text-6xl font-heading font-bold mb-6 leading-tight">
             Never Miss a{' '}
@@ -221,7 +216,7 @@ export default function Index() {
             <Calendar className="h-4 w-4" />
             <span className="font-heading font-semibold">EventFlow</span>
           </div>
-          <p>Built for engineering students, with ❤️</p>
+          <p>© {new Date().getFullYear()} EventFlow. All rights reserved.</p>
         </div>
       </footer>
     </div>
