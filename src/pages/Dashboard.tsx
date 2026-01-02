@@ -267,7 +267,10 @@ export default function Dashboard() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   className="text-destructive focus:text-destructive cursor-pointer"
-                  onClick={signOut}
+                  onClick={async () => {
+                    await signOut();
+                    window.location.href = '/';
+                  }}
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   Sign Out
