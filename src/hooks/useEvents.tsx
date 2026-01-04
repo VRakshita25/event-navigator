@@ -85,8 +85,8 @@ export function useEvents() {
 
       if (eventError) throw eventError;
 
-      // Create stages
-      const validStages = formData.stages.filter(stage => stage.name.trim());
+      // Create stages - only save stages that have both name and deadline_end
+      const validStages = formData.stages.filter(stage => stage.name.trim() && stage.deadline_end);
       if (validStages.length > 0) {
         const { error: stagesError } = await supabase
           .from('event_stages')
@@ -95,7 +95,7 @@ export function useEvents() {
               event_id: event.id,
               name: stage.name,
               deadline_start: stage.deadline_start?.toISOString() || null,
-              deadline_end: stage.deadline_end?.toISOString() || new Date().toISOString(),
+              deadline_end: stage.deadline_end!.toISOString(),
               sort_order: index,
             }))
           );
@@ -208,7 +208,8 @@ export function useEvents() {
       // Delete existing stages and recreate
       await supabase.from('event_stages').delete().eq('event_id', id);
       
-      const validStages = formData.stages.filter(stage => stage.name.trim());
+      // Only save stages that have both name and deadline_end
+      const validStages = formData.stages.filter(stage => stage.name.trim() && stage.deadline_end);
       if (validStages.length > 0) {
         const { error: stagesError } = await supabase
           .from('event_stages')
@@ -221,7 +222,7 @@ export function useEvents() {
                 : stage.deadline_start || null,
               deadline_end: stage.deadline_end instanceof Date 
                 ? stage.deadline_end.toISOString() 
-                : stage.deadline_end || new Date().toISOString(),
+                : stage.deadline_end,
               sort_order: index,
               is_completed: stage.is_completed || false,
             }))
