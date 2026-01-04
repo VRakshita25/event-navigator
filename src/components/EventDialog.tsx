@@ -42,7 +42,7 @@ export function EventDialog({
     priority: 'medium',
     category_id: '',
     notes: '',
-    stages: [{ name: '', deadline_start: null, deadline_end: null }],
+    stages: [],
     tag_ids: [],
     attachments: [],
   });
@@ -67,7 +67,7 @@ export function EventDialog({
           deadline_start: s.deadline_start ? new Date(s.deadline_start) : null,
           deadline_end: new Date(s.deadline_end),
           is_completed: s.is_completed,
-        })) || [{ name: '', deadline_start: null, deadline_end: null }],
+        })) || [],
         tag_ids: event.tags?.map(t => t.id) || [],
         attachments: event.attachments?.map(a => ({
           name: a.name,
@@ -85,7 +85,7 @@ export function EventDialog({
         priority: 'medium',
         category_id: '',
         notes: '',
-        stages: [{ name: '', deadline_start: null, deadline_end: null }],
+        stages: [],
         tag_ids: [],
         attachments: [],
       });
@@ -111,6 +111,8 @@ export function EventDialog({
       stages: formData.stages.filter((_, i) => i !== index),
     });
   };
+
+  const hasStages = formData.stages.length > 0;
 
   const updateStage = (index: number, field: 'name' | 'deadline_start' | 'deadline_end', value: string | Date | null) => {
     const newStages = [...formData.stages];
@@ -317,6 +319,11 @@ export function EventDialog({
               </Button>
             </div>
             <div className="space-y-3">
+              {!hasStages && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No stages added yet. Click "Add Stage" to add deadlines.
+                </p>
+              )}
               {formData.stages.map((stage, idx) => (
                 <div key={idx} className="p-3 rounded-lg bg-muted/50 space-y-3">
                   <div className="flex gap-2 items-center">
@@ -326,11 +333,9 @@ export function EventDialog({
                       onChange={(e) => updateStage(idx, 'name', e.target.value)}
                       className="flex-1"
                     />
-                    {formData.stages.length > 1 && (
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeStage(idx)}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeStage(idx)}>
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
@@ -346,7 +351,7 @@ export function EventDialog({
                       />
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">To / Deadline</Label>
+                      <Label className="text-xs text-muted-foreground">To / Deadline *</Label>
                       <Input
                         type="datetime-local"
                         value={stage.deadline_end instanceof Date 
