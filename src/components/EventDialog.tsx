@@ -7,9 +7,108 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X, Link as LinkIcon, Upload, Trash2, FileText } from 'lucide-react';
+import { Plus, X, Link as LinkIcon, Upload, Trash2, FileText, GripVertical } from 'lucide-react';
 import { format } from 'date-fns';
 import { Event, EventFormData, Priority, Category, Tag } from '@/types';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+interface StageItem {
+  id?: string;
+  tempId: string;
+  name: string;
+  deadline_start?: Date | null;
+  deadline_end?: Date | null;
+  is_completed?: boolean;
+}
+
+interface SortableStageProps {
+  stage: StageItem;
+  index: number;
+  updateStage: (index: number, field: 'name' | 'deadline_start' | 'deadline_end', value: string | Date | null) => void;
+  removeStage: (index: number) => void;
+}
+
+function SortableStage({ stage, index, updateStage, removeStage }: SortableStageProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: stage.tempId });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="p-3 rounded-lg bg-muted/50 space-y-3">
+      <div className="flex gap-2 items-center">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <Input
+          placeholder="Stage name (e.g., Registration)"
+          value={stage.name}
+          onChange={(e) => updateStage(index, 'name', e.target.value)}
+          className="flex-1"
+        />
+        <Button type="button" variant="ghost" size="icon" onClick={() => removeStage(index)}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="grid grid-cols-2 gap-2 ml-7">
+        <div>
+          <Label className="text-xs text-muted-foreground">From (optional)</Label>
+          <Input
+            type="datetime-local"
+            value={stage.deadline_start instanceof Date 
+              ? format(stage.deadline_start, "yyyy-MM-dd'T'HH:mm") 
+              : stage.deadline_start 
+                ? format(new Date(stage.deadline_start), "yyyy-MM-dd'T'HH:mm")
+                : ''}
+            onChange={(e) => updateStage(index, 'deadline_start', e.target.value ? new Date(e.target.value) : null)}
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-muted-foreground">To / Deadline *</Label>
+          <Input
+            type="datetime-local"
+            value={stage.deadline_end instanceof Date 
+              ? format(stage.deadline_end, "yyyy-MM-dd'T'HH:mm") 
+              : stage.deadline_end 
+                ? format(new Date(stage.deadline_end), "yyyy-MM-dd'T'HH:mm")
+                : ''}
+            onChange={(e) => updateStage(index, 'deadline_end', e.target.value ? new Date(e.target.value) : null)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface EventDialogProps {
   open: boolean;
@@ -98,6 +197,19 @@ export function EventDialog({
     onOpenChange(false);
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Convert stages to have tempIds for drag and drop
+  const stagesWithIds: StageItem[] = formData.stages.map((stage, idx) => ({
+    ...stage,
+    tempId: stage.id || `temp-${idx}`,
+  }));
+
   const addStage = () => {
     setFormData({
       ...formData,
@@ -118,6 +230,18 @@ export function EventDialog({
     const newStages = [...formData.stages];
     newStages[index] = { ...newStages[index], [field]: value };
     setFormData({ ...formData, stages: newStages });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      const oldIndex = stagesWithIds.findIndex((s) => s.tempId === active.id);
+      const newIndex = stagesWithIds.findIndex((s) => s.tempId === over.id);
+      
+      const reorderedStages = arrayMove(formData.stages, oldIndex, newIndex);
+      setFormData({ ...formData, stages: reorderedStages });
+    }
   };
 
   const toggleTag = (tagId: string) => {
@@ -311,7 +435,7 @@ export function EventDialog({
               <div>
                 <Label>Stages / Deadlines</Label>
                 <p className="text-xs text-muted-foreground mt-1">
-                  From date is optional. Only add it if the stage has a start date.
+                  Drag to reorder. From date is optional.
                 </p>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={addStage}>
@@ -324,47 +448,28 @@ export function EventDialog({
                   No stages added yet. Click "Add Stage" to add deadlines.
                 </p>
               )}
-              {formData.stages.map((stage, idx) => (
-                <div key={idx} className="p-3 rounded-lg bg-muted/50 space-y-3">
-                  <div className="flex gap-2 items-center">
-                    <Input
-                      placeholder="Stage name (e.g., Registration)"
-                      value={stage.name}
-                      onChange={(e) => updateStage(idx, 'name', e.target.value)}
-                      className="flex-1"
-                    />
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removeStage(idx)}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">From (optional)</Label>
-                      <Input
-                        type="datetime-local"
-                        value={stage.deadline_start instanceof Date 
-                          ? format(stage.deadline_start, "yyyy-MM-dd'T'HH:mm") 
-                          : stage.deadline_start 
-                            ? format(new Date(stage.deadline_start), "yyyy-MM-dd'T'HH:mm")
-                            : ''}
-                        onChange={(e) => updateStage(idx, 'deadline_start', e.target.value ? new Date(e.target.value) : null)}
+              {hasStages && (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={stagesWithIds.map(s => s.tempId)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {stagesWithIds.map((stage, idx) => (
+                      <SortableStage
+                        key={stage.tempId}
+                        stage={stage}
+                        index={idx}
+                        updateStage={updateStage}
+                        removeStage={removeStage}
                       />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">To / Deadline *</Label>
-                      <Input
-                        type="datetime-local"
-                        value={stage.deadline_end instanceof Date 
-                          ? format(stage.deadline_end, "yyyy-MM-dd'T'HH:mm") 
-                          : stage.deadline_end 
-                            ? format(new Date(stage.deadline_end), "yyyy-MM-dd'T'HH:mm")
-                            : ''}
-                        onChange={(e) => updateStage(idx, 'deadline_end', e.target.value ? new Date(e.target.value) : null)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              )}
             </div>
           </TabsContent>
           
