@@ -113,9 +113,10 @@ export default function Auth() {
       }
     } else {
       toast({
-        title: 'Welcome!',
-        description: 'Your account has been created successfully.',
+        title: 'Check your email!',
+        description: 'We sent you a verification link. Please verify your email to login.',
       });
+      setSignupForm({ email: '', password: '', displayName: '' });
     }
   };
 
