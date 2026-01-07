@@ -7,9 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar, Sparkles, Zap, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
+import { PasswordStrengthMeter } from '@/components/PasswordStrengthMeter';
 
 const authSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -28,8 +30,14 @@ export default function Auth() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const [rememberMe, setRememberMe] = useState(() => {
+    return localStorage.getItem('rememberMe') === 'true';
+  });
   
-  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [loginForm, setLoginForm] = useState(() => {
+    const savedEmail = localStorage.getItem('rememberedEmail');
+    return { email: savedEmail || '', password: '' };
+  });
   const [signupForm, setSignupForm] = useState({ email: '', password: '', displayName: '' });
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
@@ -57,6 +65,16 @@ export default function Auth() {
     }
 
     setIsSubmitting(true);
+    
+    // Handle remember me
+    if (rememberMe) {
+      localStorage.setItem('rememberMe', 'true');
+      localStorage.setItem('rememberedEmail', loginForm.email);
+    } else {
+      localStorage.removeItem('rememberMe');
+      localStorage.removeItem('rememberedEmail');
+    }
+    
     const { error } = await signIn(loginForm.email, loginForm.password);
     setIsSubmitting(false);
 
@@ -335,6 +353,17 @@ export default function Auth() {
                       )}
                     </div>
                     
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="remember-me" 
+                        checked={rememberMe}
+                        onCheckedChange={(checked) => setRememberMe(checked === true)}
+                      />
+                      <Label htmlFor="remember-me" className="text-sm font-normal cursor-pointer">
+                        Remember me
+                      </Label>
+                    </div>
+                    
                     <Button 
                       type="submit" 
                       className="w-full gradient-primary hover:opacity-90 transition-opacity"
@@ -383,6 +412,7 @@ export default function Auth() {
                         onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
                         required
                       />
+                      <PasswordStrengthMeter password={signupForm.password} />
                       {errors.password && (
                         <p className="text-sm text-destructive">{errors.password}</p>
                       )}
