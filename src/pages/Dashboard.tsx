@@ -436,7 +436,7 @@ export default function Dashboard() {
                 event={event}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
-                onToggleStage={(stageId, isCompleted) => toggleStage({ stageId, isCompleted })}
+                onToggleStage={(stageId, isCompleted) => toggleStage({ stageId, isCompleted, eventId: event.id })}
               />
             ))
           )}

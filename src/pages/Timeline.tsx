@@ -273,7 +273,7 @@ export default function TimelinePage() {
                                 variant={item.stage.is_completed ? 'outline' : 'default'}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  toggleStage({ stageId: item.stage.id, isCompleted: !item.stage.is_completed });
+                                  toggleStage({ stageId: item.stage.id, isCompleted: !item.stage.is_completed, eventId: item.event.id });
                                 }}
                               >
                                 {item.stage.is_completed ? 'Mark Incomplete' : 'Mark Complete'}

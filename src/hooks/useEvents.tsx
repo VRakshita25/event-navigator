@@ -344,7 +344,7 @@ export function useEvents() {
   });
 
   const toggleStageMutation = useMutation({
-    mutationFn: async ({ stageId, isCompleted }: { stageId: string; isCompleted: boolean }) => {
+    mutationFn: async ({ stageId, isCompleted, eventId }: { stageId: string; isCompleted: boolean; eventId: string }) => {
       const { error } = await supabase
         .from('event_stages')
         .update({
@@ -354,6 +354,30 @@ export function useEvents() {
         .eq('id', stageId);
 
       if (error) throw error;
+
+      // Check if all stages for this event are now completed
+      const { data: stages } = await supabase
+        .from('event_stages')
+        .select('is_completed')
+        .eq('event_id', eventId);
+
+      if (stages && stages.length > 0) {
+        const allCompleted = stages.every(s => s.is_completed);
+        const anyCompleted = stages.some(s => s.is_completed);
+        
+        // Auto-update event status based on stages
+        let newStatus: EventStatus = 'upcoming';
+        if (allCompleted) {
+          newStatus = 'completed';
+        } else if (anyCompleted) {
+          newStatus = 'ongoing';
+        }
+        
+        await supabase
+          .from('events')
+          .update({ status: newStatus })
+          .eq('id', eventId);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
